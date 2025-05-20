@@ -1,6 +1,8 @@
+import chalk from "chalk";
 import { Client, convertStringToHex, Payment, xrpToDrops } from "xrpl";
 
 async function payment() {
+    console.log(chalk.bgWhite("-- PAYMENT + MEMO --"));
     const client = new Client("wss://s.altnet.rippletest.net:51233/");
 
     await client.connect();
@@ -25,7 +27,7 @@ async function payment() {
     const tx = await client.submitAndWait(paymentTx, { autofill: true, wallet });
 
     if (tx.result.validated) {
-        console.log(`Transaction successful! Transaction hash: ${tx.result.hash}`);
+        console.log(`✅ Transaction successful! Transaction hash: ${tx.result.hash}`);
     } else {
         console.log(`Transaction failed! Error: ${tx.result.meta}`);
     }
