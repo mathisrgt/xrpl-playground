@@ -1,5 +1,7 @@
 import chalk from "chalk";
-import { AccountSet, AccountSetAsfFlags, Client, convertStringToHex, multisign, Payment, SignerListSet, TicketCreate, TrustSet, TrustSetFlags, xrpToDrops } from "xrpl";
+import { AccountSet, AccountSetAsfFlags, AMMCreate, AMMDeposit, Client, convertStringToHex, multisign, NFTokenBurn, NFTokenCancelOffer, NFTokenCreateOffer, NFTokenCreateOfferFlags, NFTokenMint, Payment, SignerListSet, TicketCreate, TrustSet, TrustSetFlags, xrpToDrops } from "xrpl";
+import { NFTokenCreateOfferMetadata } from "xrpl/dist/npm/models/transactions/NFTokenCreateOffer";
+import { NFTokenMintFlags, NFTokenMintMetadata } from "xrpl/dist/npm/models/transactions/NFTokenMint";
 
 // async function payment() {
 //     console.log(chalk.bgWhite("-- PAYMENT + MEMO --"));
@@ -117,92 +119,227 @@ import { AccountSet, AccountSetAsfFlags, Client, convertStringToHex, multisign, 
 //     await client.disconnect();
 // }
 
-async function amm() {
-    console.log(chalk.bgWhite("-- ACCOUNT SET RIPPLING  --"));
+// async function amm() {
+//     console.log(chalk.bgWhite("-- ACCOUNT SET RIPPLING  --"));
+//     const client = new Client("wss://s.altnet.rippletest.net:51233/");
+
+//     await client.connect();
+
+//     const { wallet: issuer } = await client.fundWallet();
+//     console.log(`Issuer: ${issuer.classicAddress}`);
+
+//     const { wallet: receiver } = await client.fundWallet();
+//     console.log(`Receiver: ${receiver.classicAddress}`);
+
+//     // ALLOW RIPPLING FOR ISSUER
+//     const accountSetTx: AccountSet = {
+//         TransactionType: "AccountSet",
+//         Account: issuer.classicAddress,
+//         SetFlag: AccountSetAsfFlags.asfDefaultRipple,
+//     }
+
+//     const result = await client.submitAndWait(accountSetTx, { autofill: true, wallet: issuer });
+
+//     if (result.result.validated)
+//         console.log(`✅ AccountSet successful! Transaction hash: ${result.result.hash}`);
+//     else
+//         console.log(`❌ AccountSet failed! Error: ${result.result.meta}`);
+
+//     // SET TRUSTLINE
+//     function convertStringToHexPadded(str: string): string {
+//         // Convert string to hexadecimal
+//         let hex: string = "";
+//         for (let i = 0; i < str.length; i++) {
+//             const hexChar: string = str.charCodeAt(i).toString(16);
+//             hex += hexChar;
+//         }
+
+//         // Pad with zeros to ensure it's 40 characters long
+//         const paddedHex: string = hex.padEnd(40, "0");
+//         return paddedHex.toUpperCase(); // Typically, hex is handled in uppercase
+//     }
+
+//     console.log(chalk.bgWhite("-- CREATE TRUSTLINE --"));
+
+//     const tokenCode = convertStringToHexPadded("USDM")
+
+//     const trustSetTx: TrustSet = {
+//         TransactionType: "TrustSet",
+//         Account: receiver.address,
+//         LimitAmount: {
+//             currency: tokenCode,
+//             issuer: issuer.address,
+//             value: "500000000",
+//         },
+//         Flags: TrustSetFlags.tfClearNoRipple
+//     }
+
+//     const trustSetTxResult = await client.submitAndWait(trustSetTx, { autofill: true, wallet: receiver });
+
+//     if (trustSetTxResult.result.validated)
+//         console.log(`✅ TrustSet successful! Transaction hash: ${trustSetTxResult.result.hash}`);
+//     else
+//         console.log(`❌ TrustSet failed! Error: ${trustSetTxResult.result.meta}`);
+
+//     // Send the token
+//     console.log(chalk.bgWhite("-- SEND PAYMENT --"));
+//     const sendPayment: Payment = {
+//         TransactionType: "Payment",
+//         Account: issuer.address,
+//         Destination: receiver.address,
+//         Amount: {
+//             currency: tokenCode,
+//             issuer: issuer.classicAddress,
+//             value: "10000",
+//         }
+//     };
+
+//     const preparedPaymentTx = await client.autofill(sendPayment);
+//     const resultPaymentTx = await client.submitAndWait(preparedPaymentTx, {
+//         wallet: issuer,
+//     });
+
+//     if (resultPaymentTx.result.validated)
+//         console.log(`✅➡️ Payment sent from ${issuer.address} to ${receiver.address}. Tx: ${resultPaymentTx.result.hash}`);
+//     else
+//         console.log(`❌ Payment failed! Error: ${resultPaymentTx.result.meta}`);
+        
+//     // Create a pool on the AMM
+//     console.log(chalk.bgWhite("-- CREATE POOL --"));
+    
+//     const createPoolTx: AMMCreate = {
+//         TransactionType: "AMMCreate",
+//         Account: issuer.classicAddress,
+//         Amount:
+//             {
+//                 currency: tokenCode,
+//                 issuer: issuer.classicAddress,
+//                 value: "20",
+//             },
+//         Amount2: xrpToDrops("10"),
+//         TradingFee: 1000
+//     }
+
+//     const createPoolTxResult = await client.submitAndWait(createPoolTx, { autofill: true, wallet: issuer });
+    
+//     if (createPoolTxResult.result.validated)
+//         console.log(`✅ AMMCreate successful! Transaction hash: ${createPoolTxResult.result.hash}`);
+//     else
+//         console.log(`❌ AMMCreate failed! Error: ${createPoolTxResult.result.meta}`);
+
+//     // Deposit on the AMM
+//     console.log(chalk.bgWhite("-- DEPOSIT POOL --"));
+    
+//     // TO DO: TO BE FIXED
+//     const depositAmmTx: AMMDeposit = {
+//         TransactionType: "AMMDeposit",
+//         Account: receiver.classicAddress,
+//         Asset:
+//             {
+//                 currency: tokenCode,
+//                 issuer: issuer.classicAddress,
+//             },
+//         Amount: { 
+//             currency: tokenCode,
+//             issuer: issuer.classicAddress,
+//             value: "10"
+//         },
+//         Asset2: { currency: "XRP" }
+
+//     }
+
+//     const depositAmmResult = await client.submitAndWait(depositAmmTx, { autofill: true, wallet: receiver });
+
+//     if(depositAmmResult.result.validated)
+//         console.log(`✅ AMMDeposit successful! Transaction hash: ${depositAmmResult.result.hash}`);
+//     else
+//         console.log(`❌ AMMCreate failed! Error: ${depositAmmResult.result.meta}`);
+
+//     await client.disconnect();
+// }
+
+async function nft() {
+    console.log(chalk.bgWhite("-- NFT --"));
     const client = new Client("wss://s.altnet.rippletest.net:51233/");
 
     await client.connect();
 
-    const { wallet: issuer } = await client.fundWallet();
-    console.log(`Issuer: ${issuer.classicAddress}`);
+    const { wallet } = await client.fundWallet();
+    console.log(`Wallet address: ${wallet.classicAddress}`);
 
-    const { wallet: receiver } = await client.fundWallet();
-    console.log(`Receiver: ${receiver.classicAddress}`);
-
-    // ALLOW RIPPLING FOR ISSUER
-    const accountSetTx: AccountSet = {
-        TransactionType: "AccountSet",
-        Account: issuer.classicAddress,
-        SetFlag: AccountSetAsfFlags.asfDefaultRipple,
+    // Create an NFT
+    const mintNftTx: NFTokenMint = {
+        TransactionType: "NFTokenMint",
+        Account: wallet.classicAddress,
+        URI: convertStringToHex("https://www.esgi.fr/"),
+        NFTokenTaxon: 0,
     }
 
-    const result = await client.submitAndWait(accountSetTx, { autofill: true, wallet: issuer });
+    const mintNftTxResult = await client.submitAndWait(mintNftTx, { autofill: true, wallet });
 
-    if (result.result.validated)
-        console.log(`✅ AccountSet successful! Transaction hash: ${result.result.hash}`);
+    if (mintNftTxResult.result.validated)
+        console.log(`✅ NFTokenMint successful! Transaction hash: ${mintNftTxResult.result.hash}`);
     else
-        console.log(`❌ AccountSet failed! Error: ${result.result.meta}`);
+        console.log(`❌ NFTokenMint failed! Error: ${mintNftTxResult.result.meta}`);
 
-    // SET TRUSTLINE
-    function convertStringToHexPadded(str: string): string {
-        // Convert string to hexadecimal
-        let hex: string = "";
-        for (let i = 0; i < str.length; i++) {
-            const hexChar: string = str.charCodeAt(i).toString(16);
-            hex += hexChar;
-        }
+    // Create an NFT offer
+    const nftId = (mintNftTxResult.result.meta as NFTokenMintMetadata).nftoken_id as string;
 
-        // Pad with zeros to ensure it's 40 characters long
-        const paddedHex: string = hex.padEnd(40, "0");
-        return paddedHex.toUpperCase(); // Typically, hex is handled in uppercase
+    const nftOfferTx: NFTokenCreateOffer = {
+        TransactionType: "NFTokenCreateOffer",
+        Account: wallet.classicAddress,
+        // Destination: "", // Replace with the address of the recipient, only claimable by the recipient
+        NFTokenID: nftId,
+        Amount: xrpToDrops("1"), // Amount in drops
+        Flags: NFTokenCreateOfferFlags.tfSellNFToken,
     }
 
-    console.log(chalk.bgWhite("-- CREATE TRUSTLINE --"));
+    const nftOfferTxResult = await client.submitAndWait(nftOfferTx, { autofill: true, wallet });
 
-    const tokenCode = convertStringToHexPadded("USDM")
-
-    const trustSetTx: TrustSet = {
-        TransactionType: "TrustSet",
-        Account: receiver.address,
-        LimitAmount: {
-            currency: tokenCode,
-            issuer: issuer.address,
-            value: "500000000",
-        },
-        Flags: TrustSetFlags.tfClearNoRipple
-    }
-
-    const trustSetTxResult = await client.submitAndWait(trustSetTx, { autofill: true, wallet: receiver });
-
-    if (trustSetTxResult.result.validated)
-        console.log(`✅ TrustSet successful! Transaction hash: ${trustSetTxResult.result.hash}`);
+    if (nftOfferTxResult.result.validated)
+        console.log(`✅ NFTokenCreateOffer successful! Transaction hash: ${nftOfferTxResult.result.hash}`);
     else
-        console.log(`❌ TrustSet failed! Error: ${trustSetTxResult.result.meta}`);
+        console.log(`❌ NFTokenCreateOffer failed! Error: ${nftOfferTxResult.result.meta}`);
 
-    // Send the token
-    console.log(chalk.bgWhite("-- SEND PAYMENT --"));
-    const sendPayment: Payment = {
-        TransactionType: "Payment",
-        Account: issuer.address,
-        Destination: receiver.address,
-        Amount: {
-            currency: tokenCode,
-            issuer: issuer.classicAddress,
-            value: "10000",
-        }
-    };
+    // Cancel the offer
+    console.log(chalk.bgWhite("-- CANCEL NFT OFFER --"));
+    const offerId = (nftOfferTxResult.result.meta as NFTokenCreateOfferMetadata)?.offer_id as string;
 
-    const preparedPaymentTx = await client.autofill(sendPayment);
-    const resultPaymentTx = await client.submitAndWait(preparedPaymentTx, {
-        wallet: issuer,
+    const nftCancelOfferTx: NFTokenCancelOffer = {
+        TransactionType: "NFTokenCancelOffer",
+        Account: wallet.address,
+        NFTokenOffers: [offerId]
+    }
+
+    const preparedCancelOfferTx = await client.autofill(nftCancelOfferTx);
+    const resultCancelOfferTx = await client.submitAndWait(preparedCancelOfferTx, {
+        wallet: wallet
     });
 
-    if (resultPaymentTx.result.validated)
-        console.log(`✅➡️ Payment sent from ${issuer.address} to ${receiver.address}. Tx: ${resultPaymentTx.result.hash}`);
+    if (resultCancelOfferTx.result.validated)
+        console.log(`✅↩️ Offer canceled for NFT #${nftId}. Tx: ${resultCancelOfferTx.result.hash}\n`);
     else
-        console.log(`❌ Payment failed! Error: ${resultPaymentTx.result.meta}`);
-        
+        console.log(chalk.red(`❌ Error canceling offer: ${resultCancelOfferTx}\n`));
+
+    // Burn the NFT
+    console.log(chalk.bgWhite("-- BURN NFT --"));
+    const nftBurnTx: NFTokenBurn = {
+        TransactionType: "NFTokenBurn",
+        Account: wallet.address,
+        NFTokenID: nftId
+    }
+
+    const preparedBurnTx = await client.autofill(nftBurnTx);
+    const resultBurnTx = await client.submitAndWait(preparedBurnTx, {
+        wallet: wallet
+    });
+
+    if (resultBurnTx.result.validated)
+        console.log(`✅🔥 NFT #${nftId} burned. Tx: ${resultBurnTx.result.hash}\n`);
+    else
+        console.log(chalk.red(`❌ Error burning the nft: ${resultBurnTx}\n`));
+
     await client.disconnect();
 }
 
-amm();
+nft();
