@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { AccountSet, AccountSetAsfFlags, Client, convertStringToHex, multisign, Payment, SignerListSet, TicketCreate, xrpToDrops } from "xrpl";
+import { AccountSet, AccountSetAsfFlags, Client, convertStringToHex, multisign, Payment, SignerListSet, TicketCreate, TrustSet, TrustSetFlags, xrpToDrops } from "xrpl";
 
 // async function payment() {
 //     console.log(chalk.bgWhite("-- PAYMENT + MEMO --"));
@@ -157,7 +157,51 @@ async function amm() {
         return paddedHex.toUpperCase(); // Typically, hex is handled in uppercase
     }
 
+    console.log(chalk.bgWhite("-- CREATE TRUSTLINE --"));
 
+    const tokenCode = convertStringToHexPadded("USDM")
+
+    const trustSetTx: TrustSet = {
+        TransactionType: "TrustSet",
+        Account: receiver.address,
+        LimitAmount: {
+            currency: tokenCode,
+            issuer: issuer.address,
+            value: "500000000",
+        },
+        Flags: TrustSetFlags.tfClearNoRipple
+    }
+
+    const trustSetTxResult = await client.submitAndWait(trustSetTx, { autofill: true, wallet: receiver });
+
+    if (trustSetTxResult.result.validated)
+        console.log(`✅ TrustSet successful! Transaction hash: ${trustSetTxResult.result.hash}`);
+    else
+        console.log(`❌ TrustSet failed! Error: ${trustSetTxResult.result.meta}`);
+
+    // Send the token
+    console.log(chalk.bgWhite("-- SEND PAYMENT --"));
+    const sendPayment: Payment = {
+        TransactionType: "Payment",
+        Account: issuer.address,
+        Destination: receiver.address,
+        Amount: {
+            currency: tokenCode,
+            issuer: issuer.classicAddress,
+            value: "10000",
+        }
+    };
+
+    const preparedPaymentTx = await client.autofill(sendPayment);
+    const resultPaymentTx = await client.submitAndWait(preparedPaymentTx, {
+        wallet: issuer,
+    });
+
+    if (resultPaymentTx.result.validated)
+        console.log(`✅➡️ Payment sent from ${issuer.address} to ${receiver.address}. Tx: ${resultPaymentTx.result.hash}`);
+    else
+        console.log(`❌ Payment failed! Error: ${resultPaymentTx.result.meta}`);
+        
     await client.disconnect();
 }
 
