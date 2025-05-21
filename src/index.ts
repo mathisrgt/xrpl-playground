@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { AccountSet, AccountSetAsfFlags, AMMCreate, AMMDeposit, Client, convertStringToHex, multisign, NFTokenBurn, NFTokenCancelOffer, NFTokenCreateOffer, NFTokenCreateOfferFlags, NFTokenMint, Payment, SignerListSet, TicketCreate, TrustSet, TrustSetFlags, xrpToDrops } from "xrpl";
+import { AccountSet, AccountSetAsfFlags, AMMCreate, AMMDeposit, Client, convertStringToHex, EscrowCreate, EscrowFinish, isoTimeToRippleTime, multisign, NFTokenBurn, NFTokenCancelOffer, NFTokenCreateOffer, NFTokenCreateOfferFlags, NFTokenMint, Payment, SignerListSet, TicketCreate, TrustSet, TrustSetFlags, xrpToDrops } from "xrpl";
 import { NFTokenCreateOfferMetadata } from "xrpl/dist/npm/models/transactions/NFTokenCreateOffer";
 import { NFTokenMintFlags, NFTokenMintMetadata } from "xrpl/dist/npm/models/transactions/NFTokenMint";
 
@@ -203,10 +203,10 @@ import { NFTokenMintFlags, NFTokenMintMetadata } from "xrpl/dist/npm/models/tran
 //         console.log(`✅➡️ Payment sent from ${issuer.address} to ${receiver.address}. Tx: ${resultPaymentTx.result.hash}`);
 //     else
 //         console.log(`❌ Payment failed! Error: ${resultPaymentTx.result.meta}`);
-        
+
 //     // Create a pool on the AMM
 //     console.log(chalk.bgWhite("-- CREATE POOL --"));
-    
+
 //     const createPoolTx: AMMCreate = {
 //         TransactionType: "AMMCreate",
 //         Account: issuer.classicAddress,
@@ -221,7 +221,7 @@ import { NFTokenMintFlags, NFTokenMintMetadata } from "xrpl/dist/npm/models/tran
 //     }
 
 //     const createPoolTxResult = await client.submitAndWait(createPoolTx, { autofill: true, wallet: issuer });
-    
+
 //     if (createPoolTxResult.result.validated)
 //         console.log(`✅ AMMCreate successful! Transaction hash: ${createPoolTxResult.result.hash}`);
 //     else
@@ -229,7 +229,7 @@ import { NFTokenMintFlags, NFTokenMintMetadata } from "xrpl/dist/npm/models/tran
 
 //     // Deposit on the AMM
 //     console.log(chalk.bgWhite("-- DEPOSIT POOL --"));
-    
+
 //     // TO DO: TO BE FIXED
 //     const depositAmmTx: AMMDeposit = {
 //         TransactionType: "AMMDeposit",
@@ -258,88 +258,133 @@ import { NFTokenMintFlags, NFTokenMintMetadata } from "xrpl/dist/npm/models/tran
 //     await client.disconnect();
 // }
 
-async function nft() {
-    console.log(chalk.bgWhite("-- NFT --"));
+// async function nft() {
+//     console.log(chalk.bgWhite("-- NFT --"));
+//     const client = new Client("wss://s.altnet.rippletest.net:51233/");
+
+//     await client.connect();
+
+//     const { wallet } = await client.fundWallet();
+//     console.log(`Wallet address: ${wallet.classicAddress}`);
+
+//     // Create an NFT
+//     const mintNftTx: NFTokenMint = {
+//         TransactionType: "NFTokenMint",
+//         Account: wallet.classicAddress,
+//         URI: convertStringToHex("https://www.esgi.fr/"),
+//         NFTokenTaxon: 0,
+//     }
+
+//     const mintNftTxResult = await client.submitAndWait(mintNftTx, { autofill: true, wallet });
+
+//     if (mintNftTxResult.result.validated)
+//         console.log(`✅ NFTokenMint successful! Transaction hash: ${mintNftTxResult.result.hash}`);
+//     else
+//         console.log(`❌ NFTokenMint failed! Error: ${mintNftTxResult.result.meta}`);
+
+//     // Create an NFT offer
+//     const nftId = (mintNftTxResult.result.meta as NFTokenMintMetadata).nftoken_id as string;
+
+//     const nftOfferTx: NFTokenCreateOffer = {
+//         TransactionType: "NFTokenCreateOffer",
+//         Account: wallet.classicAddress,
+//         // Destination: "", // Replace with the address of the recipient, only claimable by the recipient
+//         NFTokenID: nftId,
+//         Amount: xrpToDrops("1"), // Amount in drops
+//         Flags: NFTokenCreateOfferFlags.tfSellNFToken,
+//     }
+
+//     const nftOfferTxResult = await client.submitAndWait(nftOfferTx, { autofill: true, wallet });
+
+//     if (nftOfferTxResult.result.validated)
+//         console.log(`✅ NFTokenCreateOffer successful! Transaction hash: ${nftOfferTxResult.result.hash}`);
+//     else
+//         console.log(`❌ NFTokenCreateOffer failed! Error: ${nftOfferTxResult.result.meta}`);
+
+//     // Cancel the offer
+//     console.log(chalk.bgWhite("-- CANCEL NFT OFFER --"));
+//     const offerId = (nftOfferTxResult.result.meta as NFTokenCreateOfferMetadata)?.offer_id as string;
+
+//     const nftCancelOfferTx: NFTokenCancelOffer = {
+//         TransactionType: "NFTokenCancelOffer",
+//         Account: wallet.address,
+//         NFTokenOffers: [offerId]
+//     }
+
+//     const preparedCancelOfferTx = await client.autofill(nftCancelOfferTx);
+//     const resultCancelOfferTx = await client.submitAndWait(preparedCancelOfferTx, {
+//         wallet: wallet
+//     });
+
+//     if (resultCancelOfferTx.result.validated)
+//         console.log(`✅↩️ Offer canceled for NFT #${nftId}. Tx: ${resultCancelOfferTx.result.hash}\n`);
+//     else
+//         console.log(chalk.red(`❌ Error canceling offer: ${resultCancelOfferTx}\n`));
+
+//     // Burn the NFT
+//     console.log(chalk.bgWhite("-- BURN NFT --"));
+//     const nftBurnTx: NFTokenBurn = {
+//         TransactionType: "NFTokenBurn",
+//         Account: wallet.address,
+//         NFTokenID: nftId
+//     }
+
+//     const preparedBurnTx = await client.autofill(nftBurnTx);
+//     const resultBurnTx = await client.submitAndWait(preparedBurnTx, {
+//         wallet: wallet
+//     });
+
+//     if (resultBurnTx.result.validated)
+//         console.log(`✅🔥 NFT #${nftId} burned. Tx: ${resultBurnTx.result.hash}\n`);
+//     else
+//         console.log(chalk.red(`❌ Error burning the nft: ${resultBurnTx}\n`));
+
+//     await client.disconnect();
+// }
+
+async function escrow() {
+    console.log(chalk.bgWhite("-- ESCROW --"));
     const client = new Client("wss://s.altnet.rippletest.net:51233/");
 
     await client.connect();
 
-    const { wallet } = await client.fundWallet();
-    console.log(`Wallet address: ${wallet.classicAddress}`);
+    const { wallet: wallet1 } = await client.fundWallet();
+    console.log(`Wallet 1: ${wallet1.classicAddress}`);
 
-    // Create an NFT
-    const mintNftTx: NFTokenMint = {
-        TransactionType: "NFTokenMint",
-        Account: wallet.classicAddress,
-        URI: convertStringToHex("https://www.esgi.fr/"),
-        NFTokenTaxon: 0,
+    const { wallet: wallet2 } = await client.fundWallet();
+    console.log(`Wallet 2: ${wallet2.classicAddress}`);
+
+    // Create a time based escrow
+    const escrowCreateTx: EscrowCreate = {
+        TransactionType: "EscrowCreate",
+        Account: wallet1.classicAddress,
+        Destination: wallet2.classicAddress,
+        Amount: xrpToDrops("1"),
+        FinishAfter: isoTimeToRippleTime(new Date(Date.now() + 2000))
     }
 
-    const mintNftTxResult = await client.submitAndWait(mintNftTx, { autofill: true, wallet });
-
-    if (mintNftTxResult.result.validated)
-        console.log(`✅ NFTokenMint successful! Transaction hash: ${mintNftTxResult.result.hash}`);
+    const escrowCreateTxResult = await client.submitAndWait(escrowCreateTx, { autofill: true, wallet: wallet1 });
+    if (escrowCreateTxResult.result.validated)
+        console.log(`✅ EscrowCreate successful! Transaction hash: ${escrowCreateTxResult.result.hash}`);
     else
-        console.log(`❌ NFTokenMint failed! Error: ${mintNftTxResult.result.meta}`);
+        console.log(`❌ EscrowCreate failed! Error: ${escrowCreateTxResult.result.meta}`);
 
-    // Create an NFT offer
-    const nftId = (mintNftTxResult.result.meta as NFTokenMintMetadata).nftoken_id as string;
-
-    const nftOfferTx: NFTokenCreateOffer = {
-        TransactionType: "NFTokenCreateOffer",
-        Account: wallet.classicAddress,
-        // Destination: "", // Replace with the address of the recipient, only claimable by the recipient
-        NFTokenID: nftId,
-        Amount: xrpToDrops("1"), // Amount in drops
-        Flags: NFTokenCreateOfferFlags.tfSellNFToken,
+    // Finish the time based escrow
+    const escrowFinishTx: EscrowFinish = {
+        TransactionType: "EscrowFinish",
+        Account: wallet2.classicAddress,
+        Owner: wallet1.classicAddress,
+        OfferSequence: escrowCreateTxResult.result.tx_json.Sequence ?? 0
     }
+    
+    const escrowFinishTxResult = await client.submitAndWait(escrowFinishTx, { autofill: true, wallet: wallet2 });
 
-    const nftOfferTxResult = await client.submitAndWait(nftOfferTx, { autofill: true, wallet });
-
-    if (nftOfferTxResult.result.validated)
-        console.log(`✅ NFTokenCreateOffer successful! Transaction hash: ${nftOfferTxResult.result.hash}`);
+    if (escrowFinishTxResult.result.validated)
+        console.log(`✅ EscrowFinish successful! Transaction hash: ${escrowFinishTxResult.result.hash}`);
     else
-        console.log(`❌ NFTokenCreateOffer failed! Error: ${nftOfferTxResult.result.meta}`);
-
-    // Cancel the offer
-    console.log(chalk.bgWhite("-- CANCEL NFT OFFER --"));
-    const offerId = (nftOfferTxResult.result.meta as NFTokenCreateOfferMetadata)?.offer_id as string;
-
-    const nftCancelOfferTx: NFTokenCancelOffer = {
-        TransactionType: "NFTokenCancelOffer",
-        Account: wallet.address,
-        NFTokenOffers: [offerId]
-    }
-
-    const preparedCancelOfferTx = await client.autofill(nftCancelOfferTx);
-    const resultCancelOfferTx = await client.submitAndWait(preparedCancelOfferTx, {
-        wallet: wallet
-    });
-
-    if (resultCancelOfferTx.result.validated)
-        console.log(`✅↩️ Offer canceled for NFT #${nftId}. Tx: ${resultCancelOfferTx.result.hash}\n`);
-    else
-        console.log(chalk.red(`❌ Error canceling offer: ${resultCancelOfferTx}\n`));
-
-    // Burn the NFT
-    console.log(chalk.bgWhite("-- BURN NFT --"));
-    const nftBurnTx: NFTokenBurn = {
-        TransactionType: "NFTokenBurn",
-        Account: wallet.address,
-        NFTokenID: nftId
-    }
-
-    const preparedBurnTx = await client.autofill(nftBurnTx);
-    const resultBurnTx = await client.submitAndWait(preparedBurnTx, {
-        wallet: wallet
-    });
-
-    if (resultBurnTx.result.validated)
-        console.log(`✅🔥 NFT #${nftId} burned. Tx: ${resultBurnTx.result.hash}\n`);
-    else
-        console.log(chalk.red(`❌ Error burning the nft: ${resultBurnTx}\n`));
+        console.log(`❌ EscrowFinish failed! Error: ${escrowFinishTxResult.result.meta}`);
 
     await client.disconnect();
 }
 
-nft();
+escrow();
