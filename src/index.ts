@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { AccountSet, AccountSetAsfFlags, AMMCreate, AMMDeposit, Client, convertStringToHex, EscrowCreate, EscrowFinish, isoTimeToRippleTime, multisign, NFTokenBurn, NFTokenCancelOffer, NFTokenCreateOffer, NFTokenCreateOfferFlags, NFTokenMint, Payment, PaymentChannelClaim, PaymentChannelCreate, PaymentChannelFund, SignerListSet, signPaymentChannelClaim, TicketCreate, TrustSet, TrustSetFlags, xrpToDrops, Wallet } from "xrpl";
+import { AccountSet, AccountSetAsfFlags, AMMCreate, AMMDeposit, Client, convertStringToHex, EscrowCreate, EscrowFinish, isoTimeToRippleTime, multisign, NFTokenBurn, NFTokenCancelOffer, NFTokenCreateOffer, NFTokenCreateOfferFlags, NFTokenMint, Payment, PaymentChannelClaim, PaymentChannelCreate, PaymentChannelFund, SignerListSet, signPaymentChannelClaim, TicketCreate, TrustSet, TrustSetFlags, xrpToDrops, Wallet, decode } from "xrpl";
 import { NFTokenCreateOfferMetadata } from "xrpl/dist/npm/models/transactions/NFTokenCreateOffer";
 import { NFTokenMintFlags, NFTokenMintMetadata } from "xrpl/dist/npm/models/transactions/NFTokenMint";
 import { signMultiBatch, combineBatchSigners } from 'xrpl/dist/npm/Wallet/batchSigner';
@@ -575,42 +575,60 @@ async function batchTx() {
 
     await client.connect();
 
-    const { wallet: sender } = await client.fundWallet();
-    console.log(`Sender: ${sender.classicAddress}`);
+    const { wallet: wallet1 } = await client.fundWallet();
+    console.log(`Wallet1: ${wallet1.classicAddress}`);
+    console.log(`Wallet1 seed: ${wallet1.seed}`);
 
-    const { wallet: receiver1 } = await client.fundWallet();
-    console.log(`Receiver1: ${receiver1.classicAddress}`);
+    const { wallet: wallet2 } = await client.fundWallet();
+    console.log(`Wallet2: ${wallet2.classicAddress}`);
+    console.log(`Wallet2 seed: ${wallet2.seed}`);
 
-    const { wallet: receiver2 } = await client.fundWallet();
-    console.log(`Receiver2: ${receiver2.classicAddress}`);
+    const { wallet: wallet3 } = await client.fundWallet();
+    console.log(`Wallet3: ${wallet3.classicAddress}`);
+    console.log(`Wallet3 seed: ${wallet3.seed}`);
 
     // Prepare the batch transaction
 
     // Get the account sequence number
-    const accountInfo = await client.request({
+    const accountInfo1 = await client.request({
         command: 'account_info',
-        account: sender.address
+        account: wallet1.address
+    });
+    
+    const accountInfo2 = await client.request({
+        command: 'account_info',
+        account: wallet2.address
     });
 
-    const baseSequence = accountInfo.result.account_data.Sequence;
-    const currentBalance = accountInfo.result.account_data.Balance;
+    const accountInfo3 = await client.request({
+        command: 'account_info',
+        account: wallet3.address
+    });
+    
+    // Extract sequence numbers from account data
+    // Each transaction must use the correct sequence number to be valid
+    const sequence1 = accountInfo1.result.account_data.Sequence;
+    const sequence2 = accountInfo2.result.account_data.Sequence;
+    const sequence3 = accountInfo3.result.account_data.Sequence;
 
-    console.log(`Current balance: ${currentBalance} drops`);
-    console.log(`Sequence: ${baseSequence}`);
+    console.log(`Sequence Wallet 1: ${sequence1}`);
+    console.log(`Sequence Wallet 2: ${sequence2}`);
+    console.log(`Sequence Wallet 3: ${sequence3}`);
 
     const batchTx: Batch = {
         TransactionType: "Batch",
-        Account: sender.classicAddress,
-        Flags: BatchFlags.tfAllOrNothing, // BatchFlags.tfUntilFailure BatchFlags.tfOnlyOne BatchFlags.tfIndependent
+        Account: wallet1.classicAddress,
+        Flags: BatchFlags.tfAllOrNothing, // BatchFlags.tfUntilFailure - BatchFlags.tfOnlyOne - BatchFlags.tfIndependent
+        Fee: "20000", // Sufficient fee for the batch transaction (higher than regular transactions)
         RawTransactions: [
             {
                 RawTransaction: {
                     TransactionType: "Payment",
                     Flags: GlobalFlags.tfInnerBatchTxn,
-                    Account: sender.address,
-                    Destination: receiver1.address,
-                    Amount: "200",
-                    Sequence: baseSequence,
+                    Account: wallet1.address,
+                    Destination: wallet2.address,
+                    Amount: "2000",
+                    Sequence: sequence1 + 1, // wallet1 is submitting the batch transaction
                     Fee: "0",
                     SigningPubKey: ""
                 }
@@ -619,10 +637,10 @@ async function batchTx() {
                 RawTransaction: {
                     TransactionType: "Payment",
                     Flags: GlobalFlags.tfInnerBatchTxn,
-                    Account: receiver1.address,
-                    Destination: receiver2.address,
-                    Amount: "100",
-                    Sequence: baseSequence + 1,
+                    Account: wallet2.address,
+                    Destination: wallet3.address,
+                    Amount: "1000",
+                    Sequence: sequence2,
                     Fee: "0",
                     SigningPubKey: ""
                 }
@@ -631,29 +649,36 @@ async function batchTx() {
     }
 
     // SUBMISSION AND VERIFICATION
-    const senderSignedBatch = { ...batchTx };
-    signMultiBatch(sender, batchTx, { batchAccount: sender.address });
-    console.log("✅ Signed with sender");
+    const batchTxForWallet1 = structuredClone(batchTx);
+    const batchTxForWallet2 = structuredClone(batchTx);
 
-    // STEP 2: Sign with receiver1 (since they have a transaction in the batch)
-    const receiver1SignedBatch = { ...batchTx };
-    signMultiBatch(receiver1, batchTx, { batchAccount: receiver1.address });
-    console.log("✅ Signed with receiver1");
+    // 2. Each wallet signs its own copy using signMultiBatch
+    // This adds the BatchSigners field to each transaction
+    signMultiBatch(wallet1, batchTxForWallet1, {batchAccount: wallet1.address});
+    console.log("✅ Batch transaction with wallet1 BatchSigners:", JSON.stringify(batchTxForWallet1.BatchSigners, null, 2));
+    
+    signMultiBatch(wallet2, batchTxForWallet2, {batchAccount: wallet2.address});
+    console.log("✅ Batch transaction with wallet2 BatchSigners:", JSON.stringify(batchTxForWallet2.BatchSigners, null, 2));
+    
+    // 3. Combine all signatures into a single transaction
+    // combineBatchSigners merges the BatchSigners arrays from all transactions
+    const combinedTxBlob = combineBatchSigners([batchTxForWallet1, batchTxForWallet2]);
+    console.log("✅ Combined batch transaction blob created");
+    
+    // 4. Decode the combined blob to get the transaction object
+    // const combinedTx = decode(combinedTxBlob);
+    // console.log("✅ Combined transaction with all BatchSigners:", JSON.stringify(combinedTx, null, 2));
 
-    // STEP 3: Combine 
-    const combinedTxBlob = combineBatchSigners([senderSignedBatch, receiver1SignedBatch]);
-    console.log("✅ Combined signatures");
+    const batchTxResult = await client.submitAndWait(combinedTxBlob, { autofill: true, wallet: wallet1 });
 
-    const batchTxResult = await client.submitAndWait(combinedTxBlob);
-
-    console.log(`Transaction submitted with hash: ${batchTxResult.result.tx_json?.hash}`);
+    console.log(`Transaction submitted with hash: ${batchTxResult.result.hash}`);
 
     if (batchTxResult.result.validated)
-        console.log(`✅ BatchTx successful! Transaction hash: ${batchTxResult.result.hash}`);
+        console.log(`✅ BatchTx successful!`);
     else
         console.log(`❌ BatchTx failed! Error: ${batchTxResult.result.meta}`);
 
-    // await new Promise((resolve) => setTimeout(resolve, 2000));
+    // // await new Promise((resolve) => setTimeout(resolve, 2000));
 
     await client.disconnect();
 }
