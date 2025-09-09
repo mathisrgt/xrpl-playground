@@ -8,7 +8,9 @@ import crypto from 'crypto';
 // @ts-expect-error no types available
 import cc from 'five-bells-condition';
 import { validatePayment } from "xrpl/dist/npm/models/transactions/payment";
-import { PaymentChannelClaimFlags, validatePaymentChannelClaim } from "xrpl/dist/npm/models/transactions/paymentChannelClaim";
+import { Batch, BatchFlags, BatchInnerTransaction } from "xrpl/dist/npm/models/transactions/batch";
+import { GlobalFlags } from "xrpl/dist/npm/models/transactions/common";
+// import { PaymentChannelClaimFlags, validatePaymentChannelClaim } from "xrpl/dist/npm/models/transactions/paymentChannelClaim";
 
 // async function payment() {
 //     console.log(chalk.bgWhite("-- PAYMENT + MEMO --"));
@@ -432,8 +434,142 @@ import { PaymentChannelClaimFlags, validatePaymentChannelClaim } from "xrpl/dist
 //     await client.disconnect();
 // }
 
-async function channel() {
-    console.log(chalk.bgWhite("-- CHANNEL --"));
+// async function channel() {
+//     console.log(chalk.bgWhite("-- CHANNEL --"));
+//     const client = new Client("wss://s.devnet.rippletest.net:51233/");
+
+//     await client.connect();
+
+//     const { wallet: sender } = await client.fundWallet();
+//     console.log(`Sender: ${sender.classicAddress}`);
+
+//     const { wallet: receiver } = await client.fundWallet();
+//     console.log(`Receiver: ${receiver.classicAddress}`);
+//     console.log(`Public key: ${receiver.publicKey}`);
+
+//     // Create the channel
+    
+//     // Example: 
+//     // Day 1: I paid for 1 something... (10 XRP)
+//     let amountToClaimXrp = "10";
+
+//     const channelCreateTx: PaymentChannelCreate = {
+//         TransactionType: "PaymentChannelCreate",
+//         Account: sender.classicAddress,
+//         Destination: receiver.classicAddress,
+//         Amount: xrpToDrops(amountToClaimXrp),
+//         SettleDelay: 60, // Time to wait before the channel can be closed by the receiver
+//         PublicKey: sender.publicKey
+//     }
+
+//     const channelCreateTxResult = await client.submitAndWait(channelCreateTx, { autofill: true, wallet: sender });
+
+//     if (channelCreateTxResult.result.validated)
+//         console.log(`✅ ChannelCreate successful! Transaction hash: ${channelCreateTxResult.result.hash}`);
+//     else
+//         console.log(`❌ ChannelCreate failed! Error: ${channelCreateTxResult.result.meta}`);
+
+//     await new Promise((resolve) => setTimeout(resolve, 2000));
+
+//     // Retrieve the channel ID in "account_channels"
+//     const channelInfo = await client.request({
+//         command: "account_channels",
+//         account: sender.classicAddress,
+//         destination_account: receiver.classicAddress
+//     });
+
+//     const channelId = channelInfo.result.channels[0]?.channel_id;
+
+//     if (!channelId) {
+//         console.error("❌ Could not retrieve channel_id");
+//         return;
+//     }
+
+//     console.log(`🔑 Channel ID: ${channelId}`);
+
+//     await new Promise((resolve) => setTimeout(resolve, 2000));
+
+//     let signedClaim = signPaymentChannelClaim(channelId, amountToClaimXrp, sender.privateKey);
+
+//     const verifyDay1 = await client.request({
+//         command: "channel_verify",
+//         channel_id: channelId,
+//         amount: xrpToDrops(amountToClaimXrp),
+//         signature: signedClaim,
+//         public_key: sender.publicKey
+//     })
+
+//     console.log(`🌤️ Day 1 - Signature verified: ${verifyDay1.result.signature_verified ? '✅' : '❌'}`);
+
+//     // Day 2: I bought another one
+//     amountToClaimXrp = "20"; // 10 + 10
+//     const channelFundingTx: PaymentChannelFund = {
+//         TransactionType: "PaymentChannelFund",
+//         Account: sender.classicAddress,
+//         Channel: channelId,
+//         Amount: xrpToDrops("10") // Amount to add to the channel
+//     }
+
+//     const channelFundingTxResult = await client.submitAndWait(channelFundingTx, { autofill: true, wallet: sender });
+
+//     if (channelFundingTxResult.result.validated)
+//         console.log(`✅ ChannelFund successful! Transaction hash: ${channelFundingTxResult.result.hash}`);
+//     else
+//         console.log(`❌ ChannelFund failed! Error: ${channelFundingTxResult.result.meta}`);
+
+    
+//     signedClaim = signPaymentChannelClaim(channelId, amountToClaimXrp, sender.privateKey);
+
+//     const verifyDay2 = await client.request({
+//         command: "channel_verify",
+//         channel_id: channelId,
+//         amount: xrpToDrops(amountToClaimXrp),
+//         signature: signedClaim,
+//         public_key: sender.publicKey
+//     })
+
+//     console.log(`🌤️ Day 2 - Signature verified: ${verifyDay2.result.signature_verified ? '✅' : '❌'}`);
+
+//     // Claim the channel amount
+//     const claimTx: PaymentChannelClaim = {
+//         TransactionType: "PaymentChannelClaim",
+//         Account: receiver.classicAddress,
+//         Channel: channelId,
+//         Balance: xrpToDrops(amountToClaimXrp),
+//         Signature: signedClaim,
+//         PublicKey: sender.publicKey
+//     };
+
+//     const claimResult = await client.submitAndWait(claimTx, { autofill: true, wallet: receiver });
+
+//     if (claimResult.result.validated) {
+//         console.log("✅ Claim settled on-chain: ", claimResult.result.hash);
+//     } else {
+//         console.log("❌ Failed to settle claim: ", claimResult.result.meta);
+//     }
+
+//     // Close the channel
+//     const closePaymentChannelTx: PaymentChannelClaim = {
+//         TransactionType: "PaymentChannelClaim",
+//         Account: receiver.classicAddress,
+//         Channel: channelId,
+//         Flags: PaymentChannelClaimFlags.tfClose,
+//     }
+
+//     const closePaymentChannelTxResult = await client.submitAndWait(closePaymentChannelTx, { autofill: true, wallet: receiver });
+
+//     if (closePaymentChannelTxResult.result.validated)
+//         console.log(`✅ Channel closed! Transaction hash: ${closePaymentChannelTxResult.result.hash}`);
+//     else
+//         console.log(`❌ Channel close failed! Error: ${closePaymentChannelTxResult.result.meta}`);
+
+//     await client.disconnect();
+// }
+
+// channel();
+
+async function batchTx() {
+    console.log(chalk.bgYellow("-- BATCH TX --"));
     const client = new Client("wss://s.devnet.rippletest.net:51233/");
 
     await client.connect();
@@ -441,126 +577,65 @@ async function channel() {
     const { wallet: sender } = await client.fundWallet();
     console.log(`Sender: ${sender.classicAddress}`);
 
-    const { wallet: receiver } = await client.fundWallet();
-    console.log(`Receiver: ${receiver.classicAddress}`);
+    const { wallet: receiver1 } = await client.fundWallet();
+    console.log(`Receiver1: ${receiver1.classicAddress}`);
 
-    // Create the channel
+    const { wallet: receiver2 } = await client.fundWallet();
+    console.log(`Receiver2: ${receiver2.classicAddress}`);
+
+    // Prepare the batch transaction
     
-    // Example: 
-    // Day 1: I paid for 1 something... (10 XRP)
-    let amountToClaimXrp = "10";
-
-    const channelCreateTx: PaymentChannelCreate = {
-        TransactionType: "PaymentChannelCreate",
-        Account: sender.classicAddress,
-        Destination: receiver.classicAddress,
-        Amount: xrpToDrops(amountToClaimXrp),
-        SettleDelay: 60, // Time to wait before the channel can be closed by the receiver
-        PublicKey: sender.publicKey
-    }
-
-    const channelCreateTxResult = await client.submitAndWait(channelCreateTx, { autofill: true, wallet: sender });
-
-    if (channelCreateTxResult.result.validated)
-        console.log(`✅ ChannelCreate successful! Transaction hash: ${channelCreateTxResult.result.hash}`);
-    else
-        console.log(`❌ ChannelCreate failed! Error: ${channelCreateTxResult.result.meta}`);
-
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    // Retrieve the channel ID in "account_channels"
-    const channelInfo = await client.request({
-        command: "account_channels",
-        account: sender.classicAddress,
-        destination_account: receiver.classicAddress
+    // Get the account sequence number
+    const accountInfo = await client.request({
+        command: 'account_info',
+        account: sender.address
     });
+    
+    const baseSequence = accountInfo.result.account_data.Sequence;
+    const currentBalance = accountInfo.result.account_data.Balance;
+    
+    console.log(`Current balance: ${currentBalance} drops`);
+    console.log(`Sequence: ${baseSequence}`);
 
-    const channelId = channelInfo.result.channels[0]?.channel_id;
-
-    if (!channelId) {
-        console.error("❌ Could not retrieve channel_id");
-        return;
-    }
-
-    console.log(`🔑 Channel ID: ${channelId}`);
-
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    let signedClaim = signPaymentChannelClaim(channelId, amountToClaimXrp, sender.privateKey);
-
-    const verifyDay1 = await client.request({
-        command: "channel_verify",
-        channel_id: channelId,
-        amount: xrpToDrops(amountToClaimXrp),
-        signature: signedClaim,
-        public_key: sender.publicKey
-    })
-
-    console.log(`🌤️ Day 1 - Signature verified: ${verifyDay1.result.signature_verified ? '✅' : '❌'}`);
-
-    // Day 2: I bought another one
-    amountToClaimXrp = "20"; // 10 + 10
-    const channelFundingTx: PaymentChannelFund = {
-        TransactionType: "PaymentChannelFund",
+    const batchTx: Batch = {
+        TransactionType: "Batch",
         Account: sender.classicAddress,
-        Channel: channelId,
-        Amount: xrpToDrops("10") // Amount to add to the channel
+        Flags: BatchFlags.tfAllOrNothing, // BatchFlags.tfUntilFailure BatchFlags.tfOnlyOne BatchFlags.tfIndependent
+        RawTransactions: [
+            {
+                TransactionType: "Payment",
+                Flags: GlobalFlags.tfInnerBatchTxn,
+                Account: sender.address,
+                Destination: receiver1.address,
+                Amount: 200,
+                Sequence: baseSequence,
+                Fee: "0",
+                SigningPubKey: ""
+            },
+            {
+                TransactionType: "Payment",
+                Flags: GlobalFlags.tfInnerBatchTxn,
+                Account: receiver1.address,
+                Destination: receiver2.address,
+                Amount: 100,
+                Sequence: baseSequence + 1,
+                Fee: "0",
+                SigningPubKey: ""
+            }
+        ],
     }
 
-    const channelFundingTxResult = await client.submitAndWait(channelFundingTx, { autofill: true, wallet: sender });
+    // SUBMISSION AND VERIFICATION
+    const channelFundingTxResult = await client.submitAndWait(batchTx, { autofill: true, wallet: sender });
 
     if (channelFundingTxResult.result.validated)
         console.log(`✅ ChannelFund successful! Transaction hash: ${channelFundingTxResult.result.hash}`);
     else
         console.log(`❌ ChannelFund failed! Error: ${channelFundingTxResult.result.meta}`);
 
-    
-    signedClaim = signPaymentChannelClaim(channelId, amountToClaimXrp, sender.privateKey);
-
-    const verifyDay2 = await client.request({
-        command: "channel_verify",
-        channel_id: channelId,
-        amount: xrpToDrops(amountToClaimXrp),
-        signature: signedClaim,
-        public_key: sender.publicKey
-    })
-
-    console.log(`🌤️ Day 2 - Signature verified: ${verifyDay2.result.signature_verified ? '✅' : '❌'}`);
-
-    // Claim the channel amount
-    const claimTx: PaymentChannelClaim = {
-        TransactionType: "PaymentChannelClaim",
-        Account: receiver.classicAddress,
-        Channel: channelId,
-        Balance: xrpToDrops(amountToClaimXrp),
-        Signature: signedClaim,
-        PublicKey: sender.publicKey
-    };
-
-    const claimResult = await client.submitAndWait(claimTx, { autofill: true, wallet: receiver });
-
-    if (claimResult.result.validated) {
-        console.log("✅ Claim settled on-chain: ", claimResult.result.hash);
-    } else {
-        console.log("❌ Failed to settle claim: ", claimResult.result.meta);
-    }
-
-    // Close the channel
-    const closePaymentChannelTx: PaymentChannelClaim = {
-        TransactionType: "PaymentChannelClaim",
-        Account: receiver.classicAddress,
-        Channel: channelId,
-        Flags: PaymentChannelClaimFlags.tfClose,
-    }
-
-    const closePaymentChannelTxResult = await client.submitAndWait(closePaymentChannelTx, { autofill: true, wallet: receiver });
-
-    if (closePaymentChannelTxResult.result.validated)
-        console.log(`✅ Channel closed! Transaction hash: ${closePaymentChannelTxResult.result.hash}`);
-    else
-        console.log(`❌ Channel close failed! Error: ${closePaymentChannelTxResult.result.meta}`);
+    // await new Promise((resolve) => setTimeout(resolve, 2000));
 
     await client.disconnect();
 }
 
-channel();
+batchTx();
