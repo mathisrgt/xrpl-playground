@@ -1,7 +1,8 @@
 import chalk from "chalk";
-import { AccountSet, AccountSetAsfFlags, AMMCreate, AMMDeposit, Client, convertStringToHex, EscrowCreate, EscrowFinish, isoTimeToRippleTime, multisign, NFTokenBurn, NFTokenCancelOffer, NFTokenCreateOffer, NFTokenCreateOfferFlags, NFTokenMint, Payment, PaymentChannelClaim, PaymentChannelCreate, PaymentChannelFund, SignerListSet, signPaymentChannelClaim, TicketCreate, TrustSet, TrustSetFlags, xrpToDrops } from "xrpl";
+import { AccountSet, AccountSetAsfFlags, AMMCreate, AMMDeposit, Client, convertStringToHex, EscrowCreate, EscrowFinish, isoTimeToRippleTime, multisign, NFTokenBurn, NFTokenCancelOffer, NFTokenCreateOffer, NFTokenCreateOfferFlags, NFTokenMint, Payment, PaymentChannelClaim, PaymentChannelCreate, PaymentChannelFund, SignerListSet, signPaymentChannelClaim, TicketCreate, TrustSet, TrustSetFlags, xrpToDrops, Wallet } from "xrpl";
 import { NFTokenCreateOfferMetadata } from "xrpl/dist/npm/models/transactions/NFTokenCreateOffer";
 import { NFTokenMintFlags, NFTokenMintMetadata } from "xrpl/dist/npm/models/transactions/NFTokenMint";
+import { signMultiBatch, combineBatchSigners } from 'xrpl/dist/npm/Wallet/batchSigner';
 
 import crypto from 'crypto';
 
@@ -448,7 +449,7 @@ import { GlobalFlags } from "xrpl/dist/npm/models/transactions/common";
 //     console.log(`Public key: ${receiver.publicKey}`);
 
 //     // Create the channel
-    
+
 //     // Example: 
 //     // Day 1: I paid for 1 something... (10 XRP)
 //     let amountToClaimXrp = "10";
@@ -517,7 +518,7 @@ import { GlobalFlags } from "xrpl/dist/npm/models/transactions/common";
 //     else
 //         console.log(`❌ ChannelFund failed! Error: ${channelFundingTxResult.result.meta}`);
 
-    
+
 //     signedClaim = signPaymentChannelClaim(channelId, amountToClaimXrp, sender.privateKey);
 
 //     const verifyDay2 = await client.request({
@@ -584,16 +585,16 @@ async function batchTx() {
     console.log(`Receiver2: ${receiver2.classicAddress}`);
 
     // Prepare the batch transaction
-    
+
     // Get the account sequence number
     const accountInfo = await client.request({
         command: 'account_info',
         account: sender.address
     });
-    
+
     const baseSequence = accountInfo.result.account_data.Sequence;
     const currentBalance = accountInfo.result.account_data.Balance;
-    
+
     console.log(`Current balance: ${currentBalance} drops`);
     console.log(`Sequence: ${baseSequence}`);
 
@@ -603,35 +604,54 @@ async function batchTx() {
         Flags: BatchFlags.tfAllOrNothing, // BatchFlags.tfUntilFailure BatchFlags.tfOnlyOne BatchFlags.tfIndependent
         RawTransactions: [
             {
-                TransactionType: "Payment",
-                Flags: GlobalFlags.tfInnerBatchTxn,
-                Account: sender.address,
-                Destination: receiver1.address,
-                Amount: 200,
-                Sequence: baseSequence,
-                Fee: "0",
-                SigningPubKey: ""
+                RawTransaction: {
+                    TransactionType: "Payment",
+                    Flags: GlobalFlags.tfInnerBatchTxn,
+                    Account: sender.address,
+                    Destination: receiver1.address,
+                    Amount: "200",
+                    Sequence: baseSequence,
+                    Fee: "0",
+                    SigningPubKey: ""
+                }
             },
             {
-                TransactionType: "Payment",
-                Flags: GlobalFlags.tfInnerBatchTxn,
-                Account: receiver1.address,
-                Destination: receiver2.address,
-                Amount: 100,
-                Sequence: baseSequence + 1,
-                Fee: "0",
-                SigningPubKey: ""
+                RawTransaction: {
+                    TransactionType: "Payment",
+                    Flags: GlobalFlags.tfInnerBatchTxn,
+                    Account: receiver1.address,
+                    Destination: receiver2.address,
+                    Amount: "100",
+                    Sequence: baseSequence + 1,
+                    Fee: "0",
+                    SigningPubKey: ""
+                }
             }
         ],
     }
 
     // SUBMISSION AND VERIFICATION
-    const channelFundingTxResult = await client.submitAndWait(batchTx, { autofill: true, wallet: sender });
+    const senderSignedBatch = { ...batchTx };
+    signMultiBatch(sender, batchTx, { batchAccount: sender.address });
+    console.log("✅ Signed with sender");
 
-    if (channelFundingTxResult.result.validated)
-        console.log(`✅ ChannelFund successful! Transaction hash: ${channelFundingTxResult.result.hash}`);
+    // STEP 2: Sign with receiver1 (since they have a transaction in the batch)
+    const receiver1SignedBatch = { ...batchTx };
+    signMultiBatch(receiver1, batchTx, { batchAccount: receiver1.address });
+    console.log("✅ Signed with receiver1");
+
+    // STEP 3: Combine 
+    const combinedTxBlob = combineBatchSigners([senderSignedBatch, receiver1SignedBatch]);
+    console.log("✅ Combined signatures");
+
+    const batchTxResult = await client.submitAndWait(combinedTxBlob);
+
+    console.log(`Transaction submitted with hash: ${batchTxResult.result.tx_json?.hash}`);
+
+    if (batchTxResult.result.validated)
+        console.log(`✅ BatchTx successful! Transaction hash: ${batchTxResult.result.hash}`);
     else
-        console.log(`❌ ChannelFund failed! Error: ${channelFundingTxResult.result.meta}`);
+        console.log(`❌ BatchTx failed! Error: ${batchTxResult.result.meta}`);
 
     // await new Promise((resolve) => setTimeout(resolve, 2000));
 
