@@ -4,13 +4,14 @@ import { NFTokenCreateOfferMetadata } from "xrpl/dist/npm/models/transactions/NF
 import { NFTokenMintFlags, NFTokenMintMetadata } from "xrpl/dist/npm/models/transactions/NFTokenMint";
 import { signMultiBatch, combineBatchSigners } from 'xrpl/dist/npm/Wallet/batchSigner';
 
-import crypto from 'crypto';
+// import crypto from 'crypto';
 
 // @ts-expect-error no types available
 import cc from 'five-bells-condition';
 import { validatePayment } from "xrpl/dist/npm/models/transactions/payment";
 import { Batch, BatchFlags, BatchInnerTransaction } from "xrpl/dist/npm/models/transactions/batch";
 import { GlobalFlags } from "xrpl/dist/npm/models/transactions/common";
+import { multisig } from "./multisig";
 // import { PaymentChannelClaimFlags, validatePaymentChannelClaim } from "xrpl/dist/npm/models/transactions/paymentChannelClaim";
 
 // async function payment() {
@@ -648,27 +649,19 @@ async function batchTx() {
         ],
     }
 
-    // SUBMISSION AND VERIFICATION
+    
     const batchTxForWallet1 = structuredClone(batchTx);
     const batchTxForWallet2 = structuredClone(batchTx);
 
-    // 2. Each wallet signs its own copy using signMultiBatch
-    // This adds the BatchSigners field to each transaction
     signMultiBatch(wallet1, batchTxForWallet1, {batchAccount: wallet1.address});
     console.log("✅ Batch transaction with wallet1 BatchSigners:", JSON.stringify(batchTxForWallet1.BatchSigners, null, 2));
     
     signMultiBatch(wallet2, batchTxForWallet2, {batchAccount: wallet2.address});
     console.log("✅ Batch transaction with wallet2 BatchSigners:", JSON.stringify(batchTxForWallet2.BatchSigners, null, 2));
     
-    // 3. Combine all signatures into a single transaction
-    // combineBatchSigners merges the BatchSigners arrays from all transactions
     const combinedTxBlob = combineBatchSigners([batchTxForWallet1, batchTxForWallet2]);
     console.log("✅ Combined batch transaction blob created");
     
-    // 4. Decode the combined blob to get the transaction object
-    // const combinedTx = decode(combinedTxBlob);
-    // console.log("✅ Combined transaction with all BatchSigners:", JSON.stringify(combinedTx, null, 2));
-
     const batchTxResult = await client.submitAndWait(combinedTxBlob, { autofill: true, wallet: wallet1 });
 
     console.log(`Transaction submitted with hash: ${batchTxResult.result.hash}`);
@@ -683,4 +676,6 @@ async function batchTx() {
     await client.disconnect();
 }
 
-batchTx();
+// batchTx();
+
+multisig();
